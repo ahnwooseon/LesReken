@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LesReken.ApiService\LesReken.ApiService.csproj" />
     <ProjectReference Include="..\LesReken.Web\LesReken.Web.csproj" />
   </ItemGroup>
 </Project>
