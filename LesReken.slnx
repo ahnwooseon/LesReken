@@ -2,6 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/LesReken.ApiService/LesReken.ApiService.csproj" />
     <Project Path="src/LesReken.AppHost/LesReken.AppHost.csproj" />
+    <Project Path="src/LesReken.Application/LesReken.Application.csproj" />
+    <Project Path="src/LesReken.Domain/LesReken.Domain.csproj" />
+    <Project Path="src/LesReken.Infrastructure/LesReken.Infrastructure.csproj" />
     <Project Path="src/LesReken.ServiceDefaults/LesReken.ServiceDefaults.csproj" />
     <Project Path="src/LesReken.Web/LesReken.Web.csproj" />
   </Folder>

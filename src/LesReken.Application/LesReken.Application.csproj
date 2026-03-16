@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\LesReken.Domain\LesReken.Domain.csproj" />
+  </ItemGroup>
+</Project>
