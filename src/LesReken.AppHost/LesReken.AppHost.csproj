@@ -1,0 +1,16 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.3">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>85abdc7d-65e1-4e77-9650-b03bb74f5dc5</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LesReken.ApiService\LesReken.ApiService.csproj" />
+    <ProjectReference Include="..\LesReken.Web\LesReken.Web.csproj" />
+  </ItemGroup>
+
+</Project>
