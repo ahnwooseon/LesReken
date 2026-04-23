@@ -54,7 +54,7 @@
             <div class="mb-4">
                 <div class="row g-3">
                     <div class="col-5">
-                        <label class="form-label text-dim small fw-bold text-uppercase mb-2">Bedrag</label>
+                        <label class="form-label text-dim small fw-bold text-uppercase mb-2">Amount</label>
                         <div class="input-group input-premium-simple">
                             <span class="input-group-text border-0 bg-transparent text-white opacity-50">€</span>
                             <input type="number" class="form-control border-0 bg-transparent text-white" 
@@ -69,7 +69,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="form-label text-dim small fw-bold text-uppercase mb-2">Methode</label>
+                <label class="form-label text-dim small fw-bold text-uppercase mb-2">Method</label>
                 <div class="d-flex flex-wrap gap-2">
                     @foreach (var m in methods)
                     {
@@ -104,9 +104,9 @@
         @if (allPayments is null || !allPayments.Any())
         {
             <div class="glass-card text-center py-5 border-dashed">
-                <div class="display-1 opacity-10 mb-3">💵</div>
-                <h3 class="h5 fw-bold">Nog geen betalingen</h3>
-                <p class="text-muted small">Wanneer u betalingen toevoegt, verschijnen ze hier.</p>
+                <div class="display-1 opacity-25 mb-3">💵</div>
+                <h3 class="h5 fw-bold text-white">Nog geen transacties</h3>
+                <p class="text-white opacity-75 small">Wanneer u transacties toevoegt, verschijnen ze hier.</p>
             </div>
         }
         else
@@ -130,7 +130,7 @@
     @* === EDIT MODAL === *@
     @if (isEditModalOpen)
     {
-        <div class="modal-backdrop fade-in" @onclick="CancelEdit">
+        <div class="modal-backdrop fade-in" @onclick="AnnulerenEdit">
             <div class="modal-glass scale-in" @onclick:stopPropagation="true">
                 <div class="mb-4">
                     <label class="form-label text-dim small fw-bold text-uppercase mb-3">Leerling</label>
@@ -150,7 +150,7 @@
                 <div class="mb-4">
                     <div class="row g-3">
                         <div class="col-5">
-                            <label class="form-label text-dim small fw-bold text-uppercase mb-2">Bedrag</label>
+                            <label class="form-label text-dim small fw-bold text-uppercase mb-2">Amount</label>
                             <div class="input-group input-premium-simple">
                                 <span class="input-group-text border-0 bg-transparent text-white opacity-50">€</span>
                                 <input type="number" class="form-control border-0 bg-transparent text-white" 
@@ -165,7 +165,7 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label text-dim small fw-bold text-uppercase mb-2">Methode</label>
+                    <label class="form-label text-dim small fw-bold text-uppercase mb-2">Method</label>
                     <div class="d-flex flex-wrap gap-2">
                         @foreach (var m in methods)
                         {
@@ -185,12 +185,12 @@
                 }
 
                 <div class="d-flex gap-2">
-                    @if (!isConfirmingDelete)
+                    @if (!isConfirmingVerwijderen)
                     {
-                        <button type="button" class="btn-stop flex-shrink-0 px-4 py-3 shadow-sm" @onclick="() => isConfirmingDelete = true" disabled="@isSubmitting">
+                        <button type="button" class="btn-stop flex-shrink-0 px-4 py-3 shadow-sm" @onclick="() => isConfirmingVerwijderen = true" disabled="@isSubmitting">
                             <i class="bi bi-trash-fill"></i>
                         </button>
-                        <button type="button" class="btn btn-glass-secondary flex-grow-1 py-3" @onclick="CancelEdit" disabled="@isSubmitting">
+                        <button type="button" class="btn btn-glass-secondary flex-grow-1 py-3" @onclick="AnnulerenEdit" disabled="@isSubmitting">
                              Annuleren
                         </button>
                         <button type="button" class="btn-premium flex-grow-1 py-3" @onclick="SubmitPayment" disabled="@(selectedStudentId == Guid.Empty || amount <= 0 || isSubmitting)">
@@ -203,10 +203,10 @@
                         <div class="d-flex flex-column w-100 p-3 rounded-4 bg-danger bg-opacity-10 border border-danger border-opacity-30 fade-in">
                             <div class="text-danger fw-bold mb-3 text-center small">Betaling definitief verwijderen?</div>
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-danger flex-grow-1 py-2 fw-bold" @onclick="() => DeletePayment(editingPaymentId)" disabled="@isSubmitting">
+                                <button type="button" class="btn btn-danger flex-grow-1 py-2 fw-bold" @onclick="() => VerwijderenPayment(editingPaymentId)" disabled="@isSubmitting">
                                     Verwijderen
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary flex-grow-1 py-2" @onclick="() => isConfirmingDelete = false" disabled="@isSubmitting">
+                                <button type="button" class="btn btn-outline-secondary flex-grow-1 py-2" @onclick="() => isConfirmingVerwijderen = false" disabled="@isSubmitting">
                                     Nee
                                 </button>
                             </div>
@@ -296,7 +296,7 @@
     }
     .btn-premium:hover { filter: brightness(1.1); transform: scale(1.02); }
     .btn-premium:disabled { opacity: 0.4; pointer-events: none; }
-    .btn-premium.secondary { /* Added style for secondary button */
+    .btn-premium.secondary { /* Toevoegened style for secondary button */
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.08);
     }
@@ -343,18 +343,18 @@
     private List<Payment>? allPayments;
     private bool isEditModalOpen = false;
     private Guid editingPaymentId = Guid.Empty;
-    private bool isConfirmingDelete = false;
+    private bool isConfirmingVerwijderen = false;
 
     // Form
     private Guid selectedStudentId = Guid.Empty;
     private decimal amount;
     private DateTime paymentDate = DateTime.Today;
-    private string method = "Virement";
+    private string method = "Cash";
     private string? reference;
     private string errorMessage = "";
     private bool isSubmitting; // Renamed from isSaving
 
-    private string[] methods = { "Virement", "Payconiq", "Cash" };
+    private string[] methods = { "Cash", "Digitaal" };
 
     [Parameter][SupplyParameterFromQuery] public string? editId { get; set; }
 
@@ -377,7 +377,7 @@
         if (payResult.IsSuccess) allPayments = payResult.Value.ToList();
     }
 
-    private async Task SubmitPayment() // Renamed from SavePayment
+    private async Task SubmitPayment() // Renamed from OpslaanPayment
     {
         if (selectedStudentId == Guid.Empty || amount <= 0) return;
         isSubmitting = true;
@@ -397,7 +397,7 @@
 
         if (result.IsSuccess)
         {
-            CancelEdit();
+            AnnulerenEdit();
             await LoadData();
         }
         else
@@ -407,7 +407,7 @@
         isSubmitting = false;
     }
 
-    private async Task DeletePayment(Guid id)
+    private async Task VerwijderenPayment(Guid id)
     {
         var result = await PaymentService.DeletePaymentAsync(id);
         if (result.IsSuccess) await LoadData();
@@ -424,15 +424,15 @@
         isEditModalOpen = true;
     }
 
-    private void CancelEdit()
+    private void AnnulerenEdit()
     {
         isEditModalOpen = false;
-        isConfirmingDelete = false;
+        isConfirmingVerwijderen = false;
         editingPaymentId = Guid.Empty;
         selectedStudentId = Guid.Empty;
         amount = 0;
         paymentDate = DateTime.Today;
-        method = "Virement";
+        method = "Digitaal";
         reference = "";
         errorMessage = "";
     }
@@ -440,7 +440,6 @@
     private string GetMethodIcon(string m) => m switch
     {
         "Cash" => "bi-cash",
-        "Payconiq" => "bi-phone-vibrate",
-        _ => "bi-bank"
+        _ => "bi-phone-vibrate"
     };
 }

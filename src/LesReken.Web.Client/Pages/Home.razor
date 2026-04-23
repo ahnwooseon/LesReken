@@ -1,47 +1,141 @@
 @page "/"
 
-<PageTitle>LesReken | Start</PageTitle>
+<PageTitle>LesReken</PageTitle>
 
-<div class="container py-5 mt-5">
-    <div class="row min-vh-50 align-items-center">
-        <div class="col-lg-8 mx-auto text-center">
-            <h1 class="display-3 fw-bold mb-4">
-                Welkom bij <span class="text-gradient">LesReken</span>
-            </h1>
-            <p class="lead mb-5 fs-4">
-                De moderne applicatie voor het beheren en opvolgen van leerlingen.
-                Vloeiende ervaring, premium interface.
-            </p>
-            
-            <div class="d-flex justify-content-center gap-3">
-                <a href="students" class="btn-premium">
-                    <i class="bi bi-people-fill me-2"></i>Leerlingen beheren
-                </a>
-                <a href="counter" class="btn btn-outline-light rounded-pill px-4 py-2 border-2 fw-semibold">
-                    Probeer de teller
-                </a>
-            </div>
+<div class="container py-4 mt-4">
+    <div class="row g-4 justify-content-center">
+        <div class="col-md-4">
+            <a href="sessions" class="dashboard-card violet">
+                <div class="card-icon">
+                    <i class="bi bi-calendar-event"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Sessions</h3>
+                </div>
+                <div class="card-arrow">
+                    <i class="bi bi-arrow-right-short"></i>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="payments" class="dashboard-card emerald">
+                <div class="card-icon">
+                    <i class="bi bi-cash-coin"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Payments</h3>
+                </div>
+                <div class="card-arrow">
+                    <i class="bi bi-arrow-right-short"></i>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="students" class="dashboard-card azure">
+                <div class="card-icon">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Students</h3>
+                </div>
+                <div class="card-arrow">
+                    <i class="bi bi-arrow-right-short"></i>
+                </div>
+            </a>
         </div>
     </div>
 
-    <div class="row mt-5 pt-5">
-        <div class="col-md-4 mb-4">
-            <div class="glass-card h-100">
-                <div class="h3 text-gradient mb-3"><i class="bi bi-lightning-charge"></i> Snel</div>
-                <p>Geïnitialiseerd in een fractie van een seconde dankzij Blazor WASM en .NET 10.</p>
-            </div>
-        </div>
-        <div class="col-md-4 mb-4">
-            <div class="glass-card h-100">
-                <div class="h3 text-gradient mb-3"><i class="bi bi-shield-lock"></i> Veilig</div>
-                <p>Volledig getypeerd met C# van begin tot eind voor maximale robuustheid.</p>
-            </div>
-        </div>
-        <div class="col-md-4 mb-4">
-            <div class="glass-card h-100">
-                <div class="h3 text-gradient mb-3"><i class="bi bi-palette"></i> Premium</div>
-                <p>Een verfijnd ontwerp met glassmorphism en micro-interacties.</p>
-            </div>
-        </div>
-    </div>
 </div>
+
+<style>
+    .text-gradient {
+        background: linear-gradient(135deg, #a78bfa 0%, #d946ef 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .text-dim { color: #a1a1aa; }
+
+    .dashboard-card {
+        display: flex;
+        align-items: center;
+        padding: 2rem;
+        background: #18181b;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 28px;
+        text-decoration: none;
+        color: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        position: relative;
+        overflow: hidden; -webkit-tap-highlight-color: transparent; -webkit-tap-highlight-color: transparent;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        background: #202023;
+        border-color: rgba(255,255,255,0.15);
+        color: white;
+    }
+
+    .dashboard-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: radial-gradient(circle at top right, var(--glow-color), transparent 70%);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .dashboard-card:hover::before { opacity: 0.1; }
+
+    .card-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 18px;
+        background: var(--bg-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        color: var(--icon-color);
+        margin-right: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .card-content h3 { margin: 0; font-size: 1.3rem; font-weight: 700; }
+    .card-content p { margin: 0.25rem 0 0; color: #a1a1aa; font-size: 0.9rem; }
+
+    .card-arrow {
+        margin-left: auto;
+        font-size: 1.5rem;
+        color: #3f3f46;
+        transition: transform 0.3s, color 0.3s;
+    }
+
+    .dashboard-card:hover .card-arrow {
+        transform: translateX(5px);
+        color: white;
+    }
+
+    /* Colors */
+    .violet { --bg-color: rgba(139, 92, 246, 0.1); --icon-color: #a78bfa; --glow-color: #8b5cf6; }
+    .emerald { --bg-color: rgba(16, 185, 129, 0.1); --icon-color: #34d399; --glow-color: #10b981; }
+    .azure { --bg-color: rgba(14, 165, 233, 0.1); --icon-color: #38bdf8; --glow-color: #0ea5e9; }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 1.25rem;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 50px;
+        color: #71717a;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+</style>

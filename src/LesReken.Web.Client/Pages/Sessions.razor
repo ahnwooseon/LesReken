@@ -13,7 +13,7 @@
 <div class="glass-container fade-in px-3 pt-4 pb-5">
     <div class="glass-header mb-4">
         <div class="header-info">
-            <h1 class="text-gradient mb-1">Sessies</h1>
+            <h1 class="text-gradient mb-1">Sessions</h1>
         </div>
     </div>
 
@@ -128,9 +128,9 @@
                     </div>
                 }
 
-                <button class="btn-premium w-100 py-3" @onclick="StartSession"
-                        disabled="@(isStarting || !selectedStudentIds.Any())">
-                    @if (isStarting) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                <button class="btn-premium w-100 py-3" @onclick="StartenSession"
+                        disabled="@(isStartening || !selectedStudentIds.Any())">
+                    @if (isStartening) { <div class="spinner-border spinner-border-sm me-2"></div> }
                     <i class="bi bi-play-circle-fill me-2 fs-5"></i>Starten
                 </button>
             </div>
@@ -198,9 +198,15 @@
                                             </div>
                                         }
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center small detail-info-box rounded-3 p-2 px-3">
-                                        <div class="text-dim">Tarief: <span class="fw-bold text-white">@session.HourlyRate.ToString("F0")€/u</span></div>
-                                        <div class="text-dim">Kost: <span class="fw-bold text-white">@GetPerStudentCost(session)€/leerling</span></div>
+                                    <div class="detail-info-box rounded-4 p-3">
+                                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                                            <div class="text-dim">Uurtarief:</div>
+                                            <div class="fw-bold text-white">@session.HourlyRate.ToString("F0")€/u</div>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center small">
+                                            <div class="text-dim">Kosten per leerling:</div>
+                                            <div class="fw-bold text-white">@GetPerStudentCost(session)€</div>
+                                        </div>
                                     </div>
 
                                 </div>
@@ -224,7 +230,7 @@
             <div class="mb-4">
                 <div class="row align-items-center g-2 mb-3">
                     <div class="col-4">
-                        <label class="form-label text-dim small fw-bold text-uppercase m-0">Start</label>
+                        <label class="form-label text-dim small fw-bold text-uppercase m-0">Starten</label>
                     </div>
                     <div class="col-8">
                         <input type="datetime-local" class="form-control input-premium-simple"
@@ -286,7 +292,7 @@
                     <button type="button" class="btn btn-glass-secondary flex-grow-1 py-3" @onclick="CloseEditModal" disabled="@(isSaving || isDeleting)">
                         Annuleren
                     </button>
-                    <button type="button" class="btn-premium flex-grow-1 py-3" @onclick="SaveEdit" disabled="@(isSaving || isDeleting)">
+                    <button type="button" class="btn-premium flex-grow-1 py-3" @onclick="OpslaanEdit" disabled="@(isSaving || isDeleting)">
                         @if (isSaving) { <div class="spinner-border spinner-border-sm me-2"></div> }
                         Opslaan
                     </button>
@@ -385,13 +391,18 @@
         border-radius: 24px !important;
     }
     .timer-display { 
-        font-size: 3.8rem; 
+        font-size: 3rem; 
         font-weight: 800; 
-        letter-spacing: -3px; 
+        letter-spacing: -2px; 
         color: white; 
         line-height: 1; 
         font-variant-numeric: tabular-nums;
         text-shadow: 0 0 20px rgba(255,255,255,0.1);
+    }
+
+    @@media (max-width: 400px) {
+        .timer-display { font-size: 2.5rem; letter-spacing: -1px; }
+        .active-session-card { padding: 1.25rem !important; }
     }
 
     /* Student Chips */
@@ -425,7 +436,7 @@
         font-weight: bold;
     }
 
-    /* History & Grouping */
+    /* Historiek & Grouping */
     .month-header {
         position: sticky;
         top: 4.2rem; 
@@ -582,7 +593,7 @@
     // Form
     private int hourlyRate = 25;
     private List<Guid> selectedStudentIds = new();
-    private bool isStarting, isStopping;
+    private bool isStartening, isStopping;
     private string errorMessage = "";
 
     // Timer
@@ -634,14 +645,14 @@
             completedSessions = allSessions.Where(s => s.EndAt is not null).ToList();
 
             if (activeSession is not null)
-                StartTimer();
+                StartenTimer();
         }
     }
 
     // ===== TIMER =====
     private bool _disposed;
 
-    private void StartTimer()
+    private void StartenTimer()
     {
         _disposed = false;
         _timer?.Dispose();
@@ -674,10 +685,10 @@
             selectedStudentIds.Add(id);
     }
 
-    private async Task StartSession()
+    private async Task StartenSession()
     {
         if (!selectedStudentIds.Any()) return;
-        isStarting = true; errorMessage = "";
+        isStartening = true; errorMessage = "";
 
         var result = await SessionService.StartSessionAsync((decimal)hourlyRate, selectedStudentIds);
         if (result.IsSuccess)
@@ -688,7 +699,7 @@
         else
             errorMessage = result.Errors.FirstOrDefault()?.Message ?? "Fout.";
 
-        isStarting = false;
+        isStartening = false;
     }
 
     private async Task StopSession()
@@ -765,7 +776,7 @@
             editStudentIds.Add(id);
     }
 
-    private async Task SaveEdit()
+    private async Task OpslaanEdit()
     {
         if (editingSession is null) return;
         isSaving = true; editErrorMessage = "";

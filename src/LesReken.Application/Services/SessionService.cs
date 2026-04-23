@@ -21,7 +21,7 @@ public class SessionService(ISessionRepository repository, IStudentRepository st
 
         var session = new Session { StartAt = DateTimeOffset.UtcNow, HourlyRate = hourlyRate };
 
-        foreach (var studentId in studentIds)
+        foreach (var studentId in studentIds.Distinct())
         {
             // Vérifier si l'élève existe (optionnel, mais recommandé)
             var student = await studentRepository.GetByIdAsync(studentId, ct);
@@ -82,7 +82,7 @@ public class SessionService(ISessionRepository repository, IStudentRepository st
 
         // Replace students
         session.SessionStudents.Clear();
-        foreach (var studentId in studentIds)
+        foreach (var studentId in studentIds.Distinct())
         {
             var student = await studentRepository.GetByIdAsync(studentId, ct);
             if (student is not null)

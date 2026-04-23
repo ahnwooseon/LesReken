@@ -82,7 +82,7 @@
                                 }
                                 else if (selectedStudentLedger == null || !selectedStudentLedger.Any())
                                 {
-                                    <div class="small text-muted py-2 italic text-center">Nog geen transacties.</div>
+                                    <div class="small text-white opacity-75 py-2 italic text-center">Nog geen transacties.</div>
                                 }
                                 else
                                 {
@@ -96,8 +96,7 @@
                                                 </div>
                                                 <div class="text-end @(entry.IsPayment ? "payment cursor-pointer hover-opacity-100" : "session")" 
                                                      @onclick='() => { if(entry.IsPayment) Navigation.NavigateTo($"/payments?editId={entry.RelatedId}"); }'>
-                                                    @(entry.Amount > 0 ? "+" : "")@entry.Amount.ToString("F2")€
-                                                    <div class="x-small opacity-50">@ledgerBalances.GetValueOrDefault(entry.RelatedId).ToString("F2")€</div>
+                                                    <div class="fw-bold">@(entry.Amount > 0 ? "+" : "")@entry.Amount.ToString("F2")€</div>
                                                 </div>
                                             </div>
                                         }
@@ -132,7 +131,7 @@
                     {
                         <div class="selection-item d-flex align-items-center py-2 border-bottom border-white border-opacity-10">
                             <input type="checkbox" class="form-check-input me-3" 
-                                   checked="@selectedStudentsToDelete.Contains(s.Id)" 
+                                   checked="@selectedLeerlingenToDelete.Contains(s.Id)" 
                                    @onchange="(e) => ToggleSelection(s.Id)" />
                             <span class="small">@s.Name</span>
                         </div>
@@ -142,8 +141,8 @@
 
             <div class="d-flex gap-3">
                 <button class="btn-glass secondary w-100" @onclick="() => isDeleteModalVisible = false">Annuleren</button>
-                <button class="btn-glass danger w-100" @onclick="BulkDelete" disabled="@(!selectedStudentsToDelete.Any())">
-                    Confirm (@selectedStudentsToDelete.Count)
+                <button class="btn-glass danger w-100" @onclick="BulkDelete" disabled="@(!selectedLeerlingenToDelete.Any())">
+                    Confirm (@selectedLeerlingenToDelete.Count)
                 </button>
             </div>
         </div>
@@ -184,7 +183,7 @@
     private bool isLoadingLedger;
     private Student? selectedStudent;
     private bool isDeleteModalVisible = false;
-    private HashSet<Guid> selectedStudentsToDelete = new();
+    private HashSet<Guid> selectedLeerlingenToDelete = new();
     private bool isFormVisible = false;
     private bool isCreating = false;
     private string newStudentName = "";
@@ -193,10 +192,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadStudents();
+        await LoadLeerlingen();
     }
 
-    private async Task LoadStudents()
+    private async Task LoadLeerlingen()
     {
         var result = await StudentService.GetAllAsync();
         if (result.IsSuccess)
@@ -268,7 +267,7 @@
 
             if (result.IsSuccess)
             {
-                await LoadStudents();
+                await LoadLeerlingen();
                 CloseAddForm();
             }
             else
@@ -282,23 +281,23 @@
 
     private async Task BulkDelete()
     {
-        if (!selectedStudentsToDelete.Any()) return;
+        if (!selectedLeerlingenToDelete.Any()) return;
         
-        foreach (var id in selectedStudentsToDelete)
+        foreach (var id in selectedLeerlingenToDelete)
         {
             await StudentService.DeleteAsync(id);
         }
         
-        selectedStudentsToDelete.Clear();
+        selectedLeerlingenToDelete.Clear();
         isDeleteModalVisible = false;
         selectedStudent = null;
-        await LoadStudents();
+        await LoadLeerlingen();
     }
 
     private void ToggleSelection(Guid id)
     {
-        if (selectedStudentsToDelete.Contains(id)) selectedStudentsToDelete.Remove(id);
-        else selectedStudentsToDelete.Add(id);
+        if (selectedLeerlingenToDelete.Contains(id)) selectedLeerlingenToDelete.Remove(id);
+        else selectedLeerlingenToDelete.Add(id);
     }
 
     private async Task DeleteStudent(Guid id)
@@ -307,7 +306,7 @@
         if (result.IsSuccess)
         {
             selectedStudent = null;
-            await LoadStudents();
+            await LoadLeerlingen();
         }
     }
 

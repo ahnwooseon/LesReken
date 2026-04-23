@@ -62,7 +62,7 @@ public class PaymentService(
         foreach (var sess in sessions.Where(s => s.EndAt.HasValue))
         {
             var duration = GetDurationInHours(sess);
-            var studentCount = sess.SessionStudents.Count;
+            var studentCount = sess.SessionStudents.Select(ss => ss.StudentId).Distinct().Count();
             if (studentCount > 0)
             {
                 var sessionCost = sess.HourlyRate * (decimal)duration;
@@ -86,15 +86,18 @@ public class PaymentService(
         foreach (var sess in sessions.Where(s => s.EndAt.HasValue))
         {
             var duration = GetDurationInHours(sess);
-            var studentCount = sess.SessionStudents.Count;
+            var studentCount = sess.SessionStudents.Select(ss => ss.StudentId).Distinct().Count();
             if (studentCount > 0)
             {
                 var sessionCost = sess.HourlyRate * (decimal)duration;
                 var costPerStudent = Math.Round(sessionCost / studentCount, 2);
                 
+                var start = new DateTimeOffset(sess.StartAt.Year, sess.StartAt.Month, sess.StartAt.Day, sess.StartAt.Hour, sess.StartAt.Minute, 0, sess.StartAt.Offset); var end = new DateTimeOffset(sess.EndAt.Value.Year, sess.EndAt.Value.Month, sess.EndAt.Value.Day, sess.EndAt.Value.Hour, sess.EndAt.Value.Minute, 0, sess.EndAt.Value.Offset); var ts = end - start;
+                var durationStr = ts.TotalMinutes < 60 ? $"{(int)ts.TotalMinutes}mn" : $"{(int)ts.TotalHours}u{ts.Minutes:D2}mn";
+
                 ledger.Add(new StudentLedgerEntry(
                     sess.StartAt,
-                    $"{duration:F1}u",
+                    durationStr,
                     -costPerStudent,
                     false,
                     sess.Id
