@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionStudent> SessionStudents => Set<SessionStudent>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
     // SQLite workaround: DateTimeOffset is stored as ISO 8601 string (sortable).
     // Remove this override when switching to PostgreSQL (native TIMESTAMPTZ support).
