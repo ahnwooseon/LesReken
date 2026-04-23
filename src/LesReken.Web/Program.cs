@@ -25,6 +25,8 @@ builder.Services.AddSqlite<ApplicationDbContext>(
 // Repositories & Services (Server Implementation)
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
+builder.Services.AddScoped<ISessionService, SessionService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();

@@ -11,7 +11,12 @@ builder
     .Services.AddRefitClient<IStudentApi>()
     .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 
-// Enregistrer l'implémentation WASM du service
+builder
+    .Services.AddRefitClient<ISessionApi>()
+    .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
+
+// Enregistrer les implémentations WASM des services
 builder.Services.AddScoped<IStudentService, WasmStudentService>();
+builder.Services.AddScoped<ISessionService, WasmSessionService>();
 
 await builder.Build().RunAsync();
