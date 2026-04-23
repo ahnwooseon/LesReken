@@ -1,0 +1,203 @@
+@page "/students"
+@using LesReken.Application.Interfaces
+@using LesReken.Domain.Models
+@using FluentResults
+@rendermode InteractiveAuto
+@inject IStudentService StudentService
+
+<PageTitle>Students Management</PageTitle>
+
+<div class="glass-container fade-in">
+    <div class="glass-header">
+        <div class="header-info">
+            <h1>Students</h1>
+        </div>
+        @if (students != null && students.Any())
+        {
+            <div class="header-actions">
+                <button class="btn-glass primary" @onclick="ShowAddForm">
+                    <i class="bi bi-person-plus-fill"></i> New Student
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (students == null)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Synchronizing data...</p>
+        </div>
+    }
+    else if (!students.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p>No students found. Start by adding your first one!</p>
+            <button class="btn-glass secondary" @onclick="ShowAddForm">Add Student</button>
+        </div>
+    }
+    else
+    {
+        <div class="student-list">
+            @foreach (var student in students)
+            {
+                <div class="student-row glass-card-row @(selectedStudent?.Id == student.Id ? "active" : "")" @onclick="() => SelectStudent(student)">
+                    <div class="row-left">
+                        <div class="row-avatar">
+                            @student.Name[0].ToString().ToUpper()
+                        </div>
+                        <div class="row-info">
+                            <span class="student-name">@student.Name</span>
+                            <span class="student-meta">Member since today</span>
+                        </div>
+                    </div>
+                    <div class="row-right">
+                        <button class="btn-icon circle shadow-hover">
+                            <i class="bi bi-pencil-fill"></i>
+                        </button>
+                    </div>
+                </div>
+
+                @if (selectedStudent?.Id == student.Id)
+                {
+                    <div class="student-details-panel slide-down">
+                        <div class="details-content">
+                            <div class="details-section">
+                                <h6>Registration Details</h6>
+                                <p><strong>ID:</strong> @student.Id</p>
+                            </div>
+                            <div class="details-actions">
+                                <button class="btn-glass danger" @onclick="() => DeleteStudent(student.Id)">
+                                    <i class="bi bi-trash3-fill"></i> Remove Student
+                                </button>
+                                <button class="btn-glass secondary" @onclick="() => selectedStudent = null">Close Details</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@if (isFormVisible)
+{
+    <div class="modal-backdrop fade-in">
+        <div class="modal-glass slide-up">
+            <div class="modal-header">
+                <h2>Add New Student</h2>
+                <button class="close-btn" @onclick="CloseAddForm">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input @bind="newStudentName" @bind:event="oninput" placeholder="e.g. John Doe" maxlength="30" @onkeyup="HandleKeyUp" />
+                    <span class="helper">Max 30 characters. Trimming is automatic.</span>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="error-msg fade-in">@errorMessage</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass cancel" @onclick="CloseAddForm">Cancel</button>
+                <button class="btn-glass primary" @onclick="CreateStudent" disabled="@(string.IsNullOrWhiteSpace(newStudentName) || isCreating)">
+                     @if (isCreating) { <div class="mini-spinner"></div> }
+                    Create Student
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Student>? students;
+    private Student? selectedStudent;
+    private bool isFormVisible = false;
+    private bool isCreating = false;
+    private string newStudentName = "";
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudents();
+    }
+
+    private async Task LoadStudents()
+    {
+        var result = await StudentService.GetAllAsync();
+        if (result.IsSuccess)
+        {
+            students = result.Value.ToList();
+        }
+    }
+
+    private void SelectStudent(Student student)
+    {
+        if (selectedStudent?.Id == student.Id)
+        {
+            selectedStudent = null;
+        }
+        else
+        {
+            selectedStudent = student;
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        isFormVisible = true;
+        newStudentName = "";
+        errorMessage = "";
+    }
+
+    private void CloseAddForm()
+    {
+        isFormVisible = false;
+        errorMessage = "";
+    }
+
+    private async Task CreateStudent()
+    {
+        if (string.IsNullOrWhiteSpace(newStudentName)) return;
+
+        isCreating = true;
+        errorMessage = "";
+
+        try {
+            var student = new Student { Name = newStudentName };
+            var result = await StudentService.AddAsync(student);
+
+            if (result.IsSuccess)
+            {
+                await LoadStudents();
+                CloseAddForm();
+            }
+            else
+            {
+                errorMessage = result.Errors.FirstOrDefault()?.Message ?? "An error occurred.";
+            }
+        } finally {
+            isCreating = false;
+        }
+    }
+
+    private async Task DeleteStudent(Guid id)
+    {
+        var result = await StudentService.DeleteAsync(id);
+        if (result.IsSuccess)
+        {
+            selectedStudent = null;
+            await LoadStudents();
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await CreateStudent();
+        }
+    }
+}

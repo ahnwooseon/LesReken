@@ -1,0 +1,23 @@
+# .NET
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docuser
+
+# Visual Studio
+.vs/
+
+# Visual Studio Code
+.vscode/
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Log files
+*.log
+
+# User-specific files
+.DS_Store
