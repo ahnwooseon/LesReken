@@ -1,9 +1,13 @@
 @page "/students"
 @using LesReken.Application.Interfaces
 @using LesReken.Domain.Models
+@using LesReken.Application.DTOs.Payments
 @using FluentResults
+@using System.Globalization
 @rendermode InteractiveAuto
 @inject IStudentService StudentService
+@inject NavigationManager Navigation
+@inject IPaymentService PaymentService
 
 <PageTitle>Leerlingenbeheer</PageTitle>
 
@@ -15,8 +19,8 @@
         @if (students != null && students.Any())
         {
             <div class="header-actions">
-                <button class="btn-glass primary" @onclick="ShowAddForm">
-                    <i class="bi bi-person-plus-fill"></i> Nieuwe Leerling
+                <button class="btn-glass primary px-3" @onclick="ShowAddForm" title="Nieuwe Leerling">
+                    <i class="bi bi-plus-lg fs-5"></i>
                 </button>
             </div>
         }
@@ -44,18 +48,26 @@
             {
                 <div class="student-row glass-card-row @(selectedStudent?.Id == student.Id ? "active" : "")" @onclick="() => SelectStudent(student)">
                     <div class="row-left">
-                        <div class="row-avatar">
-                            @student.Name[0].ToString().ToUpper()
-                        </div>
                         <div class="row-info">
                             <span class="student-name">@student.Name</span>
-                            <span class="student-meta">Lid sinds vandaag</span>
                         </div>
                     </div>
                     <div class="row-right">
-                        <button class="btn-icon circle shadow-hover">
-                            <i class="bi bi-pencil-fill"></i>
-                        </button>
+                         @if (balances.TryGetValue(student.Id, out var balance))
+                         {
+                             @if (balance > 0)
+                             {
+                                 <span class="fw-bold text-danger">@balance.ToString("F2")€</span>
+                             }
+                             else if (balance < 0)
+                             {
+                                 <span class="fw-bold text-success">@Math.Abs(balance).ToString("F2")€</span>
+                             }
+                             else
+                             {
+                                 <span class="text-success small">In orde</span>
+                             }
+                         }
                     </div>
                 </div>
 
@@ -63,23 +75,80 @@
                 {
                     <div class="student-details-panel slide-down">
                         <div class="details-content">
-                            <div class="details-section">
-                                <h6>Registratiegegevens</h6>
-                                <p><strong>ID:</strong> @student.Id</p>
-                            </div>
-                            <div class="details-actions">
-                                <button class="btn-glass danger" @onclick="() => DeleteStudent(student.Id)">
-                                    <i class="bi bi-trash3-fill"></i> Leerling verwijderen
-                                </button>
-                                <button class="btn-glass secondary" @onclick="() => selectedStudent = null">Details sluiten</button>
+                            <div class="ledger-section">
+                                @if (isLoadingLedger)
+                                {
+                                    <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>
+                                }
+                                else if (selectedStudentLedger == null || !selectedStudentLedger.Any())
+                                {
+                                    <div class="small text-muted py-2 italic text-center">Nog geen transacties.</div>
+                                }
+                                else
+                                {
+                                    <div class="ledger-list">
+                                        @foreach (var entry in selectedStudentLedger.OrderByDescending(x => x.Date))
+                                        {
+                                            <div class="ledger-item d-flex justify-content-between align-items-center py-2">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <span class="text-dim x-small">@entry.Date.ToString("dd/MM")</span>
+                                                    <span class="small">@entry.Description</span>
+                                                </div>
+                                                <div class="text-end @(entry.IsPayment ? "payment cursor-pointer hover-opacity-100" : "session")" 
+                                                     @onclick='() => { if(entry.IsPayment) Navigation.NavigateTo($"/payments?editId={entry.RelatedId}"); }'>
+                                                    @(entry.Amount > 0 ? "+" : "")@entry.Amount.ToString("F2")€
+                                                    <div class="x-small opacity-50">@ledgerBalances.GetValueOrDefault(entry.RelatedId).ToString("F2")€</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>
                 }
             }
+            
+            <div class="list-footer mt-4 text-center">
+                <button class="btn btn-link text-dim text-decoration-none small" @onclick="() => isDeleteModalVisible = true">
+                    <i class="bi bi-person-x me-1"></i> Leerlingen verwijderen
+                </button>
+            </div>
         </div>
     }
 </div>
+
+@* === DELETE MODAL === *@
+@if (isDeleteModalVisible)
+{
+    <div class="modal-overlay fade-in" @onclick="() => isDeleteModalVisible = false">
+        <div class="modal-content glass-card p-4" @onclick:stopPropagation>
+            <h5 class="fw-bold mb-4">Leerlingen verwijderen</h5>
+            
+            <div class="selection-list mb-4">
+                @if (students != null)
+                {
+                    @foreach (var s in students)
+                    {
+                        <div class="selection-item d-flex align-items-center py-2 border-bottom border-white border-opacity-10">
+                            <input type="checkbox" class="form-check-input me-3" 
+                                   checked="@selectedStudentsToDelete.Contains(s.Id)" 
+                                   @onchange="(e) => ToggleSelection(s.Id)" />
+                            <span class="small">@s.Name</span>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="d-flex gap-3">
+                <button class="btn-glass secondary w-100" @onclick="() => isDeleteModalVisible = false">Annuleren</button>
+                <button class="btn-glass danger w-100" @onclick="BulkDelete" disabled="@(!selectedStudentsToDelete.Any())">
+                    Confirm (@selectedStudentsToDelete.Count)
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @if (isFormVisible)
 {
@@ -87,24 +156,21 @@
         <div class="modal-glass slide-up">
             <div class="modal-header">
                 <h2>Nieuwe leerling toevoegen</h2>
-                <button class="close-btn" @onclick="CloseAddForm">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="input-group">
-                    <label>Volledige Naam</label>
-                    <input @bind="newStudentName" @bind:event="oninput" placeholder="bijv. Jan Janssens" maxlength="30" @onkeyup="HandleKeyUp" />
-                    <span class="helper">Max. 30 tekens. Spaties worden automatisch getrimd.</span>
+                <div class="input-group mb-3">
+                    <input @bind="newStudentName" @bind:event="oninput" placeholder="Naam van leerling" maxlength="30" @onkeyup="HandleKeyUp" />
                 </div>
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
                     <div class="error-msg fade-in">@errorMessage</div>
                 }
             </div>
-            <div class="modal-footer">
-                <button class="btn-glass cancel" @onclick="CloseAddForm">Annuleren</button>
-                <button class="btn-glass primary" @onclick="CreateStudent" disabled="@(string.IsNullOrWhiteSpace(newStudentName) || isCreating)">
+            <div class="modal-footer d-flex gap-3">
+                <button class="btn-glass secondary w-100" @onclick="CloseAddForm">Annuleren</button>
+                <button class="btn-glass primary w-100" @onclick="CreateStudent" disabled="@(string.IsNullOrWhiteSpace(newStudentName) || isCreating)">
                      @if (isCreating) { <div class="mini-spinner"></div> }
-                    Leerling aanmaken
+                    Aanmaken
                 </button>
             </div>
         </div>
@@ -113,11 +179,17 @@
 
 @code {
     private List<Student>? students;
+    private Dictionary<Guid, decimal> balances = new();
+    private List<StudentLedgerEntry>? selectedStudentLedger;
+    private bool isLoadingLedger;
     private Student? selectedStudent;
+    private bool isDeleteModalVisible = false;
+    private HashSet<Guid> selectedStudentsToDelete = new();
     private bool isFormVisible = false;
     private bool isCreating = false;
     private string newStudentName = "";
     private string errorMessage = "";
+    private Dictionary<Guid, decimal> ledgerBalances = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -130,18 +202,43 @@
         if (result.IsSuccess)
         {
             students = result.Value.ToList();
+            foreach (var s in students)
+            {
+                var bRes = await PaymentService.GetStudentBalanceAsync(s.Id);
+                if (bRes.IsSuccess) balances[s.Id] = bRes.Value;
+            }
         }
     }
 
-    private void SelectStudent(Student student)
+    private async Task SelectStudent(Student student)
     {
         if (selectedStudent?.Id == student.Id)
         {
             selectedStudent = null;
+            selectedStudentLedger = null;
+            ledgerBalances.Clear();
         }
         else
         {
             selectedStudent = student;
+            isLoadingLedger = true;
+            StateHasChanged();
+            
+            var result = await PaymentService.GetStudentLedgerAsync(student.Id);
+            if (result.IsSuccess) 
+            {
+                selectedStudentLedger = result.Value.ToList();
+                // Pre-calculate running balances (chronological order)
+                decimal running = 0;
+                ledgerBalances.Clear();
+                foreach (var entry in selectedStudentLedger.OrderBy(x => x.Date))
+                {
+                    running += entry.Amount;
+                    ledgerBalances[entry.RelatedId] = running;
+                }
+            }
+            
+            isLoadingLedger = false;
         }
     }
 
@@ -183,6 +280,27 @@
         }
     }
 
+    private async Task BulkDelete()
+    {
+        if (!selectedStudentsToDelete.Any()) return;
+        
+        foreach (var id in selectedStudentsToDelete)
+        {
+            await StudentService.DeleteAsync(id);
+        }
+        
+        selectedStudentsToDelete.Clear();
+        isDeleteModalVisible = false;
+        selectedStudent = null;
+        await LoadStudents();
+    }
+
+    private void ToggleSelection(Guid id)
+    {
+        if (selectedStudentsToDelete.Contains(id)) selectedStudentsToDelete.Remove(id);
+        else selectedStudentsToDelete.Add(id);
+    }
+
     private async Task DeleteStudent(Guid id)
     {
         var result = await StudentService.DeleteAsync(id);
@@ -200,4 +318,48 @@
             await CreateStudent();
         }
     }
+
+    private string GetRunningBalanceCss(decimal b) => b > 0 ? "text-danger" : "text-success";
 }
+
+<style>
+    .ledger-table-container {
+        background: rgba(0,0,0,0.2);
+        border-radius: 12px;
+        padding: 0.5rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .btn-glass.mini { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+
+    .slide-down { animation: slideDown 0.3s ease-out; }
+
+    /* Ledger Items */
+    .ledger-item {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .ledger-item:last-child {
+        border-bottom: none;
+    }
+    .x-small { font-size: 0.7rem; }
+    .hover-opacity-100:hover { opacity: 1 !important; }
+
+    .student-row {
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent; /* Buffer to prevent shift on active border */
+    }
+    .student-row.active {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+        display: flex; align-items: center; justify-content: center; z-index: 2000;
+        padding: 1.5rem;
+    }
+    .selection-list { max-height: 400px; overflow-y: auto; }
+</style>

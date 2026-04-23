@@ -27,6 +27,14 @@ public class SessionRepository(ApplicationDbContext context) : ISessionRepositor
             .OrderByDescending(s => s.StartAt)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyCollection<Session>> GetByStudentIdAsync(Guid studentId, CancellationToken ct = default) =>
+        await context.Sessions
+            .Include(s => s.SessionStudents)
+                .ThenInclude(ss => ss.Student)
+            .Where(s => s.SessionStudents.Any(ss => ss.StudentId == studentId))
+            .OrderByDescending(s => s.StartAt)
+            .ToListAsync(ct);
+
     public async Task<bool> UpdateAsync(Session session, CancellationToken ct = default)
     {
         try

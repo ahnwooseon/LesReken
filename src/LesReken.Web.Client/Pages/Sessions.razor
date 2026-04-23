@@ -27,7 +27,7 @@
             }
         </button>
         <button class="tab-btn @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
-            <i class="bi bi-clock-history me-2 fs-5"></i><span>Geschiedenis</span>
+            <i class="bi bi-clock-history me-2 fs-5"></i><span>Historiek</span>
         </button>
     </div>
 
@@ -408,10 +408,9 @@
         user-select: none;
         font-size: 0.9rem;
     }
-    .student-chip:active { transform: scale(0.96); }
     .student-chip.active { 
-        background: var(--accent-glow); 
-        border-color: var(--accent-color); 
+        background: rgba(139, 92, 246, 0.2); 
+        border-color: #8b5cf6; 
         color: white; 
     }
     .avatar-mini {
@@ -553,7 +552,7 @@
         background: #323236 !important;
         box-shadow: 0 0 10px var(--accent-glow);
     }
-    .input-premium-simple { padding: 0.75rem 1rem; width: 100%; }
+    .input-premium-simple { padding: 0.5rem 1rem; width: 100%; }
 
     /* Modal Handle for Bottom Sheet */
     .modal-handle {

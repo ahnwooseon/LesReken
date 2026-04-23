@@ -1,0 +1,446 @@
+@page "/payments"
+@using LesReken.Application.Interfaces
+@using LesReken.Domain.Models
+@using FluentResults
+@using System.Globalization
+@rendermode InteractiveAuto
+@inject IPaymentService PaymentService
+@inject IStudentService StudentService
+@inject NavigationManager Navigation
+
+<PageTitle>LesReken | Betalingen</PageTitle>
+
+<div class="glass-container fade-in px-3 pt-4 pb-5">
+    <div class="glass-header mb-4">
+        <div class="header-info">
+            <h1 class="text-gradient mb-1">Betalingen</h1>
+        </div>
+    </div>
+
+    @* === TABS === *@
+    <div class="session-tabs mb-4">
+        <button class="tab-btn @(activeTab == 0 ? "active" : "")" @onclick="() => activeTab = 0">
+            <i class="bi bi-wallet2 me-2"></i><span class="fw-bold">Nieuw</span>
+        </button>
+        <button class="tab-btn @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
+            <i class="bi bi-view-list me-2 fs-5"></i><span>Historiek</span>
+        </button>
+    </div>
+
+    @* === TAB 0: ENTRY === *@
+    @if (activeTab == 0)
+    {
+        <div class="glass-card">
+            <div class="mb-4">
+                <label class="form-label text-dim small fw-bold text-uppercase mb-3">Leerling</label>
+                @if (availableStudents is null)
+                {
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                }
+                else
+                {
+                    <div class="dropdown-premium">
+                        <select class="form-select border-0 bg-transparent text-white" @bind="selectedStudentId">
+                            <option value="@Guid.Empty" class="bg-dark">Kies een leerling...</option>
+                            @foreach (var s in availableStudents)
+                            {
+                                <option value="@s.Id" class="bg-dark">@s.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+
+            <div class="mb-4">
+                <div class="row g-3">
+                    <div class="col-5">
+                        <label class="form-label text-dim small fw-bold text-uppercase mb-2">Bedrag</label>
+                        <div class="input-group input-premium-simple">
+                            <span class="input-group-text border-0 bg-transparent text-white opacity-50">€</span>
+                            <input type="number" class="form-control border-0 bg-transparent text-white" 
+                                   @bind="amount" step="0.01" placeholder="0.00" />
+                        </div>
+                    </div>
+                    <div class="col-7">
+                        <label class="form-label text-dim small fw-bold text-uppercase mb-2">Datum</label>
+                        <input type="date" class="form-control input-premium-simple py-2 px-3" @bind="paymentDate" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-dim small fw-bold text-uppercase mb-2">Methode</label>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var m in methods)
+                    {
+                        <div class="student-chip @(method == m ? "active" : "")" @onclick="() => method = m">
+                            <i class="bi @GetMethodIcon(m) opacity-50"></i>
+                            <span>@m</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger py-2 mb-4 fs-7">
+                    <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                </div>
+            }
+
+            <div class="d-flex justify-content-end">
+                <button class="btn-premium w-100 py-3" @onclick="SubmitPayment" disabled="@(selectedStudentId == Guid.Empty || amount <= 0 || isSubmitting)">
+                    @if (isSubmitting) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                    Toevoegen
+                </button>
+            </div>
+        </div>
+    }
+
+    @* === TAB 1: OVERZICHT === *@
+    @if (activeTab == 1)
+    {
+        @if (allPayments is null || !allPayments.Any())
+        {
+            <div class="glass-card text-center py-5 border-dashed">
+                <div class="display-1 opacity-10 mb-3">💵</div>
+                <h3 class="h5 fw-bold">Nog geen betalingen</h3>
+                <p class="text-muted small">Wanneer u betalingen toevoegt, verschijnen ze hier.</p>
+            </div>
+        }
+        else
+        {
+            <div class="payment-history d-flex flex-column gap-3">
+                @foreach (var group in allPayments.GroupBy(p => p.PaymentDate.Date).OrderByDescending(g => g.Key))
+                {
+                    <div class="date-header small text-dim text-uppercase fw-bold letter-spacing-1 mt-2">
+                        @group.Key.ToString("dd MMMM yyyy", CultureInfo.GetCultureInfo("nl-BE"))
+                    </div>
+                    @foreach (var p in group)
+                    {
+                        <div class="history-row glass-card">
+                            @RenderPaymentRow(p)
+                        </div>
+                    }
+                }
+            </div>
+        }
+    }
+    @* === EDIT MODAL === *@
+    @if (isEditModalOpen)
+    {
+        <div class="modal-backdrop fade-in" @onclick="CancelEdit">
+            <div class="modal-glass scale-in" @onclick:stopPropagation="true">
+                <div class="mb-4">
+                    <label class="form-label text-dim small fw-bold text-uppercase mb-3">Leerling</label>
+                    <div class="dropdown-premium">
+                        <select class="form-select border-0 bg-transparent text-white" @bind="selectedStudentId">
+                            @if (availableStudents is not null)
+                            {
+                                @foreach (var s in availableStudents)
+                                {
+                                    <option value="@s.Id" class="bg-dark">@s.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="row g-3">
+                        <div class="col-5">
+                            <label class="form-label text-dim small fw-bold text-uppercase mb-2">Bedrag</label>
+                            <div class="input-group input-premium-simple">
+                                <span class="input-group-text border-0 bg-transparent text-white opacity-50">€</span>
+                                <input type="number" class="form-control border-0 bg-transparent text-white" 
+                                       @bind="amount" step="0.01" />
+                            </div>
+                        </div>
+                        <div class="col-7">
+                            <label class="form-label text-dim small fw-bold text-uppercase mb-2">Datum</label>
+                            <input type="date" class="form-control input-premium-simple py-2 px-3" @bind="paymentDate" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-dim small fw-bold text-uppercase mb-2">Methode</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var m in methods)
+                        {
+                            <div class="student-chip @(method == m ? "active" : "")" @onclick="() => method = m">
+                                <i class="bi @GetMethodIcon(m) opacity-50"></i>
+                                <span>@m</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger py-2 mb-4 fs-7">
+                        <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                    </div>
+                }
+
+                <div class="d-flex gap-2">
+                    @if (!isConfirmingDelete)
+                    {
+                        <button type="button" class="btn-stop flex-shrink-0 px-4 py-3 shadow-sm" @onclick="() => isConfirmingDelete = true" disabled="@isSubmitting">
+                            <i class="bi bi-trash-fill"></i>
+                        </button>
+                        <button type="button" class="btn btn-glass-secondary flex-grow-1 py-3" @onclick="CancelEdit" disabled="@isSubmitting">
+                             Annuleren
+                        </button>
+                        <button type="button" class="btn-premium flex-grow-1 py-3" @onclick="SubmitPayment" disabled="@(selectedStudentId == Guid.Empty || amount <= 0 || isSubmitting)">
+                            @if (isSubmitting) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                            Opslaan
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column w-100 p-3 rounded-4 bg-danger bg-opacity-10 border border-danger border-opacity-30 fade-in">
+                            <div class="text-danger fw-bold mb-3 text-center small">Betaling definitief verwijderen?</div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-danger flex-grow-1 py-2 fw-bold" @onclick="() => DeletePayment(editingPaymentId)" disabled="@isSubmitting">
+                                    Verwijderen
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary flex-grow-1 py-2" @onclick="() => isConfirmingDelete = false" disabled="@isSubmitting">
+                                    Nee
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private RenderFragment RenderPaymentRow(Payment p) => __builder => {
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <div class="icon-circle mini me-3 bg-primary bg-opacity-10 text-primary clickable-icon" @onclick="() => StartEdit(p)">
+                    <i class="bi bi-pencil-square"></i>
+                </div>
+                <div>
+                    <div class="fw-bold fs-6">@p.Student.Name</div>
+                    <div class="small text-dim">@p.Method @(string.IsNullOrEmpty(p.Reference) ? "" : "• " + p.Reference)</div>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="h6 fw-bold text-success mb-0">+@p.Amount.ToString("F2")€</div>
+            </div>
+        </div>
+    };
+}
+
+<style>
+    /* Reuse global tokens but keep local style for encapsulation */
+    .glass-container { max-width: 800px; margin: 0 auto; min-height: 100vh; }
+    .text-gradient { background: #ffffff; -webkit-background-clip: text; -webkit-text-fill-color: white; }
+    
+    .session-tabs { 
+        display: flex; gap: 0.5rem; background: rgba(0,0,0,0.2); 
+        padding: 4px; border-radius: 16px; backdrop-filter: blur(10px);
+    }
+    .tab-btn {
+        flex: 1; padding: 0.8rem; border-radius: 12px; border: none;
+        background: transparent; color: rgba(255,255,255,0.5); font-weight: 600;
+        cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center;
+    }
+    .tab-btn.active { background: rgba(255,255,255,0.15); color: white; }
+
+    .glass-card { 
+        background: #18181b !important; border: 1px solid rgba(255,255,255,0.08); 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 24px; padding: 1.5rem;
+    }
+
+    .dropdown-premium select {
+        width: 100%; padding: 0.8rem; border-radius: 12px;
+        background: #27272a !important; border: 1px solid rgba(255,255,255,0.08);
+        color: white; font-weight: 500; appearance: none;
+    }
+
+    .input-premium-simple {
+        background: #27272a !important; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px; color: white !important;
+    }
+    .input-premium-simple input { 
+        background: transparent !important; color: white !important; padding: 0.5rem 1rem; 
+    }
+
+    .student-chip {
+        background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 50px; padding: 0.5rem 1rem; cursor: pointer;
+        display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;
+    }
+    .student-chip.active { background: rgba(139, 92, 246, 0.2); border-color: #8b5cf6; color: white; }
+
+    .btn-glass-secondary {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        border-radius: 16px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .btn-glass-secondary:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
+
+    .btn-premium {
+        background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+        color: white; border: none; border-radius: 16px; font-weight: 700;
+        transition: all 0.3s;
+    }
+    .btn-premium:hover { filter: brightness(1.1); transform: scale(1.02); }
+    .btn-premium:disabled { opacity: 0.4; pointer-events: none; }
+    .btn-premium.secondary { /* Added style for secondary button */
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .btn-premium.secondary:hover { filter: brightness(1.2); transform: scale(1.02); }
+
+
+    .icon-circle.mini { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .history-row { margin-bottom: 0.75rem !important; }
+    .letter-spacing-1 { letter-spacing: 0.05em; }
+    .border-dashed { border-style: dashed !important; border-width: 2px !important; }
+    
+    input[type="date"] { color-scheme: dark; }
+
+    /* Modal Styling */
+    .modal-backdrop {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(15px); z-index: 1000;
+        display: flex; align-items: center; justify-content: center;
+        padding: 1.5rem;
+    }
+    .modal-glass {
+        background: #0c0c0e; border: 1px solid rgba(255,255,255,0.1); 
+        border-radius: 32px; width: 100%; max-width: 500px;
+        padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        max-height: 90vh; overflow-y: auto;
+    }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    .scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    .clickable-icon { cursor: pointer; transition: all 0.2s; }
+    .clickable-icon:hover { transform: scale(1.1); }
+    .clickable-icon:active { transform: scale(0.9); }
+    .btn-stop { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; border-radius: 16px; transition: all 0.2s; }
+    .btn-stop:hover { background: rgba(239, 68, 68, 0.25); }
+    .btn-stop:active { transform: scale(0.95); }
+    .hover-opacity-100:hover { opacity: 1 !important; }
+</style>
+
+@code {
+    private int activeTab = 0;
+    private List<Student>? availableStudents;
+    private List<Payment>? allPayments;
+    private bool isEditModalOpen = false;
+    private Guid editingPaymentId = Guid.Empty;
+    private bool isConfirmingDelete = false;
+
+    // Form
+    private Guid selectedStudentId = Guid.Empty;
+    private decimal amount;
+    private DateTime paymentDate = DateTime.Today;
+    private string method = "Virement";
+    private string? reference;
+    private string errorMessage = "";
+    private bool isSubmitting; // Renamed from isSaving
+
+    private string[] methods = { "Virement", "Payconiq", "Cash" };
+
+    [Parameter][SupplyParameterFromQuery] public string? editId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        if (!string.IsNullOrEmpty(editId) && Guid.TryParse(editId, out var gid))
+        {
+            var pRes = await PaymentService.GetByIdAsync(gid);
+            if (pRes.IsSuccess) StartEdit(pRes.Value);
+        }
+    }
+
+    private async Task LoadData()
+    {
+        var studResult = await StudentService.GetAllAsync();
+        if (studResult.IsSuccess) availableStudents = studResult.Value.ToList();
+
+        var payResult = await PaymentService.GetAllAsync();
+        if (payResult.IsSuccess) allPayments = payResult.Value.ToList();
+    }
+
+    private async Task SubmitPayment() // Renamed from SavePayment
+    {
+        if (selectedStudentId == Guid.Empty || amount <= 0) return;
+        isSubmitting = true;
+        errorMessage = ""; // Clear error message on new submission attempt
+
+        Result result;
+        if (editingPaymentId == Guid.Empty)
+        {
+            var dateOffset = new DateTimeOffset(paymentDate, TimeZoneInfo.Local.GetUtcOffset(paymentDate));
+            result = (await PaymentService.AddPaymentAsync(selectedStudentId, amount, dateOffset, method, reference)).ToResult();
+        }
+        else
+        {
+            var p = new Payment { Id = editingPaymentId, StudentId = selectedStudentId, Amount = amount, PaymentDate = paymentDate, Method = method, Reference = reference };
+            result = await PaymentService.UpdatePaymentAsync(editingPaymentId, p);
+        }
+
+        if (result.IsSuccess)
+        {
+            CancelEdit();
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Errors.FirstOrDefault()?.Message ?? "Fout bij opslaan/bijwerken.";
+        }
+        isSubmitting = false;
+    }
+
+    private async Task DeletePayment(Guid id)
+    {
+        var result = await PaymentService.DeletePaymentAsync(id);
+        if (result.IsSuccess) await LoadData();
+    }
+
+    private void StartEdit(Payment p)
+    {
+        editingPaymentId = p.Id;
+        selectedStudentId = p.StudentId;
+        amount = p.Amount;
+        paymentDate = p.PaymentDate.DateTime;
+        method = p.Method;
+        reference = p.Reference;
+        isEditModalOpen = true;
+    }
+
+    private void CancelEdit()
+    {
+        isEditModalOpen = false;
+        isConfirmingDelete = false;
+        editingPaymentId = Guid.Empty;
+        selectedStudentId = Guid.Empty;
+        amount = 0;
+        paymentDate = DateTime.Today;
+        method = "Virement";
+        reference = "";
+        errorMessage = "";
+    }
+
+    private string GetMethodIcon(string m) => m switch
+    {
+        "Cash" => "bi-cash",
+        "Payconiq" => "bi-phone-vibrate",
+        _ => "bi-bank"
+    };
+}
