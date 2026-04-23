@@ -1,0 +1,797 @@
+@page "/sessions"
+@using LesReken.Application.Interfaces
+@using LesReken.Application.DTOs.Sessions
+@using LesReken.Domain.Models
+@using System.Globalization
+@rendermode InteractiveAuto
+@inject ISessionService SessionService
+@inject IStudentService StudentService
+@implements IDisposable
+
+<PageTitle>LesReken | Sessions</PageTitle>
+
+<div class="glass-container fade-in px-3 pt-4 pb-5">
+    <div class="glass-header mb-4">
+        <div class="header-info">
+            <h1 class="text-gradient mb-1">Sessies</h1>
+        </div>
+    </div>
+
+    @* === TABS === *@
+    <div class="session-tabs mb-4">
+        <button class="tab-btn @(activeTab == 0 ? "active" : "")" @onclick="() => activeTab = 0">
+            <i class="bi bi-plus-lg me-2"></i><span class="fw-bold">Nieuw</span>
+            @if (activeSession is not null)
+            {
+                <span class="live-dot pulse"></span>
+            }
+        </button>
+        <button class="tab-btn @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
+            <i class="bi bi-clock-history me-2 fs-5"></i><span>Geschiedenis</span>
+        </button>
+    </div>
+
+    @* === TAB 0: SESSION EN COURS / FORMULAIRE === *@
+    @if (activeTab == 0)
+    {
+        @if (activeSession is not null)
+        {
+            @* --- SESSION EN COURS --- *@
+            <div class="glass-card active-session-card mb-4">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 mb-3">
+                            <span class="live-dot me-2"></span>BEZIG...
+                        </span>
+                        <div class="timer-display">@FormatElapsed()</div>
+                    </div>
+                    <div class="text-end pt-2">
+                        <div class="text-white h5 mb-0 fw-bold">@activeSession.HourlyRate.ToString("F0")€<span class="text-dim fs-6 fw-normal">/h</span></div>
+                    </div>
+                </div>
+
+                <div class="mb-4 pt-2">
+                    <div class="text-dim small mb-3 text-uppercase fw-bold letter-spacing-1">Leerlingen</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var ss in activeSession.SessionStudents)
+                        {
+                            <div class="student-chip active no-hover">
+                                <span class="avatar-mini">@ss.Student.Name[0]</span>
+                                <span>@ss.Student.Name</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <button class="btn-stop w-100 py-3 mt-2" @onclick="StopSession" disabled="@isStopping">
+                    @if (isStopping) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                    <i class="bi bi-stop-circle-fill me-2 fs-5"></i>Sessie Beëindigen
+                </button>
+            </div>
+        }
+        else
+        {
+            @* --- FORMULAIRE NOUVELLE SESSION --- *@
+<div class="glass-card">
+
+                <div class="mb-4">
+                    <div class="row align-items-center g-2">
+                        <div class="col-5">
+                            <label class="form-label text-dim small fw-bold text-uppercase m-0">Uurtarief</label>
+                        </div>
+                        <div class="col-7">
+                            <div class="input-group input-premium">
+                                <span class="input-group-text border-0 bg-transparent text-white opacity-50">€</span>
+                                <input type="number" class="form-control border-0 bg-transparent text-white"
+                                       @bind="hourlyRate" step="1" min="0" placeholder="0" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-dim small fw-bold text-uppercase mb-3">
+                        Leerlingen
+                    </label>
+                    
+                    @if (availableStudents is null)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm text-primary"></div>
+                        </div>
+                    }
+                    else if (!availableStudents.Any())
+                    {
+                        <div class="glass-card text-center py-4 border-dashed">
+                            <p class="m-0 text-muted small">Geen leerlingen gevonden.</p>
+                            <a href="students" class="btn btn-link btn-sm text-primary text-decoration-none">Leerling toevoegen <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var student in availableStudents)
+                            {
+                                <div class="student-chip @(selectedStudentIds.Contains(student.Id) ? "active" : "")"
+                                     @onclick="() => ToggleStudent(student.Id)">
+                                    <span>@student.Name</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger py-2 mb-4 fs-7">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>@errorMessage
+                    </div>
+                }
+
+                <button class="btn-premium w-100 py-3" @onclick="StartSession"
+                        disabled="@(isStarting || !selectedStudentIds.Any())">
+                    @if (isStarting) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                    <i class="bi bi-play-circle-fill me-2 fs-5"></i>Starten
+                </button>
+            </div>
+        }
+    }
+
+    @* === TAB 1: HISTORIQUE === *@
+    @if (activeTab == 1)
+    {
+        @if (completedSessions is null || !completedSessions.Any())
+        {
+            <div class="glass-card text-center py-5 border-dashed">
+                <div class="display-1 opacity-10 mb-3">📅</div>
+                <h3 class="h5 fw-bold">Geen voltooide sessies</h3>
+                <p class="text-muted small">Uw afgeronde sessies verschijnen hier.</p>
+            </div>
+        }
+        else
+        {
+            <div class="session-history pb-4">
+                @foreach (var monthGroup in completedSessions
+                    .GroupBy(s => new { s.StartAt.ToLocalTime().Year, s.StartAt.ToLocalTime().Month })
+                    .OrderByDescending(g => g.Key.Year).ThenByDescending(g => g.Key.Month))
+                {
+                    var monthLabel = new DateTime(monthGroup.Key.Year, monthGroup.Key.Month, 1).ToString("MMMM yy", CultureInfo.GetCultureInfo("nl-BE"));
+                    var monthTotal = monthGroup.Sum(s => s.HourlyRate * (decimal)GetSessionDuration(s).TotalHours);
+
+                    <div class="month-header d-flex justify-content-between align-items-center">
+                        <h5 class="text-capitalize h6 m-0 fw-bold">@monthLabel</h5>
+                        <span class="text-accent fw-bold h6 m-0">@monthTotal.ToString("F2")€</span>
+                    </div>
+                    
+                    <div class="d-flex flex-column">
+                        @foreach (var session in monthGroup.OrderByDescending(s => s.StartAt))
+                        {
+                        <div class="history-row glass-card @(expandedSessionId == session.Id ? "expanded" : "")"
+                             @onclick="() => ToggleExpand(session.Id)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="icon-circle mini me-3 clickable-icon @(expandedSessionId == session.Id ? "active" : "")" 
+                                         @onclick="() => OpenEditModal(session)" @onclick:stopPropagation="true">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size: 1.05rem;">@session.StartAt.ToLocalTime().ToString("dd/MM/yy")</div>
+                                        <div class="small text-dim lh-1 mt-1">
+                                            @session.StartAt.ToLocalTime().ToString("HH:mm") → @session.EndAt?.ToLocalTime().ToString("HH:mm")
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold text-accent mb-0" style="font-size: 1.05rem;">@GetTotal(session)€</div>
+                                    <div class="small text-dim lh-1 mt-1">@GetDuration(session)</div>
+                                </div>
+                            </div>
+
+                            @if (expandedSessionId == session.Id)
+                            {
+                                <div class="expanded-details mt-2 pt-2 fade-in border-white border-opacity-5" @onclick:stopPropagation="true">
+                                    <div class="d-flex flex-wrap gap-2 mb-3">
+                                        @foreach (var ss in session.SessionStudents)
+                                        {
+                                            <div class="student-chip active no-hover">
+                                                <span>@ss.Student.Name</span>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center small detail-info-box rounded-3 p-2 px-3">
+                                        <div class="text-dim">Tarief: <span class="fw-bold text-white">@session.HourlyRate.ToString("F0")€/u</span></div>
+                                        <div class="text-dim">Kost: <span class="fw-bold text-white">@GetPerStudentCost(session)€/leerling</span></div>
+                                    </div>
+
+                                </div>
+                            }
+                        </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@* === MODALE D'ÉDITION === *@
+@if (isEditModalOpen && editingSession is not null)
+{
+    <div class="modal-backdrop fade-in" @onclick="CloseEditModal">
+        <div class="modal-glass scale-in" @onclick:stopPropagation="true">
+            @* No header/title as requested *@
+
+            <div class="mb-4">
+                <div class="row align-items-center g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label text-dim small fw-bold text-uppercase m-0">Start</label>
+                    </div>
+                    <div class="col-8">
+                        <input type="datetime-local" class="form-control input-premium-simple"
+                               @bind="editStartAt" />
+                    </div>
+                </div>
+                <div class="row align-items-center g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label text-dim small fw-bold text-uppercase m-0">Einde</label>
+                    </div>
+                    <div class="col-8">
+                        <input type="datetime-local" class="form-control input-premium-simple"
+                               @bind="editEndAt" />
+                    </div>
+                </div>
+                <div class="row align-items-center g-2">
+                    <div class="col-5">
+                        <label class="form-label text-dim small fw-bold text-uppercase m-0">Uurtarief</label>
+                    </div>
+                    <div class="col-7">
+                        <div class="input-group input-premium-simple">
+                             <span class="input-group-text border-0 bg-transparent text-white opacity-50">€</span>
+                             <input type="number" class="form-control border-0 bg-transparent text-white"
+                                    @bind="editHourlyRate" step="1" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-dim small fw-bold text-uppercase mb-3">Leerlingen</label>
+                <div class="d-flex flex-wrap gap-2">
+                    @if (availableStudents is not null)
+                    {
+                        @foreach (var student in availableStudents)
+                        {
+                            <div class="student-chip @(editStudentIds.Contains(student.Id) ? "active" : "")"
+                                 @onclick="() => ToggleEditStudent(student.Id)">
+                                <span>@student.Name</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(editErrorMessage))
+            {
+                <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger py-2 mb-4 fs-7">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>@editErrorMessage
+                </div>
+            }
+
+            <div class="d-flex gap-2">
+                @if (!isConfirmingDelete)
+                {
+                    <button type="button" class="btn-stop flex-shrink-0 px-4 py-3 shadow-sm" @onclick="() => isConfirmingDelete = true" disabled="@(isSaving || isDeleting)">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                    <button type="button" class="btn btn-glass-secondary flex-grow-1 py-3" @onclick="CloseEditModal" disabled="@(isSaving || isDeleting)">
+                        Annuleren
+                    </button>
+                    <button type="button" class="btn-premium flex-grow-1 py-3" @onclick="SaveEdit" disabled="@(isSaving || isDeleting)">
+                        @if (isSaving) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                        Opslaan
+                    </button>
+                }
+                else
+                {
+                    <div class="d-flex flex-column w-100 p-3 rounded-4 bg-danger bg-opacity-10 border border-danger border-opacity-30 fade-in">
+                        <div class="text-danger fw-bold mb-3 text-center">Weet je zeker dat je deze sessie wilt verwijderen?</div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-danger flex-grow-1 py-2 fw-bold" @onclick="DeleteSession" disabled="@isDeleting">
+                                @if (isDeleting) { <div class="spinner-border spinner-border-sm me-2"></div> }
+                                Ja, Verwijder
+                            </button>
+                            <button type="button" class="btn btn-glass-secondary flex-grow-1 py-2" @onclick="() => isConfirmingDelete = false" disabled="@isDeleting">
+                                Annuleren
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Premium Tokens */
+    :root {
+        --bg-dark: #09090b;
+        --card-bg: #18181b;
+        --glass-bg: rgba(255, 255, 255, 0.03);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-bright: rgba(255, 255, 255, 0.15);
+        --accent-glow: rgba(139, 92, 246, 0.2); /* Solid Violet Glow */
+        --accent-color: #a78bfa; /* Soft Violet */
+        --accent-brand: #8b5cf6; /* Main Violet */
+        --success-glow: rgba(34, 197, 94, 0.15);
+        --success-color: #22c55e;
+        --text-main: #ffffff;
+        --text-dim: #a1a1aa;
+    }
+
+    body { background-color: var(--bg-dark) !important; color: var(--text-main); }
+    .glass-card { 
+        background: var(--card-bg) !important; 
+        border: 1px solid var(--glass-border); 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        border-radius: 24px;
+        padding: 1.5rem;
+    }
+    .text-dim { color: var(--text-dim) !important; }
+    .detail-info-box { background: rgba(0,0,0,0.3) !important; border: 1px solid rgba(255,255,255,0.05); }
+
+    /* Tabs Polishing */
+    .session-tabs { 
+        display: flex; 
+        gap: 0.5rem;
+        background: rgba(0,0,0,0.2);
+        padding: 4px;
+        border-radius: 16px;
+        position: sticky;
+        top: 0.75rem;
+        z-index: 101; 
+        backdrop-filter: blur(10px);
+    }
+    .tab-btn {
+        flex: 1;
+        padding: 0.8rem; 
+        border-radius: 12px; 
+        border: none;
+        background: transparent; 
+        color: rgba(255,255,255,0.5); 
+        font-weight: 600;
+        cursor: pointer; 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+    }
+    .tab-btn.active { 
+        background: var(--glass-border-bright); 
+        color: white; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .live-dot {
+        width: 8px; height: 8px; background: var(--success-color); border-radius: 50%;
+        display: inline-block; margin-left: 0.5rem; 
+        box-shadow: 0 0 10px var(--success-color);
+    }
+
+    /* Active Session Card */
+    .active-session-card { 
+        border: 1px solid var(--success-glow); 
+        background: linear-gradient(135deg, rgba(46,213,115,0.05) 0%, rgba(0,0,0,0) 100%);
+        padding: 1.75rem !important;
+        border-radius: 24px !important;
+    }
+    .timer-display { 
+        font-size: 3.8rem; 
+        font-weight: 800; 
+        letter-spacing: -3px; 
+        color: white; 
+        line-height: 1; 
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 20px rgba(255,255,255,0.1);
+    }
+
+    /* Student Chips */
+    .student-chip {
+        background: var(--glass-bg); 
+        border: 1px solid var(--glass-border);
+        border-radius: 50px; 
+        padding: 0.5rem 1rem; 
+        cursor: pointer;
+        display: flex; 
+        align-items: center; 
+        gap: 0.5rem; 
+        transition: all 0.2s; 
+        user-select: none;
+        font-size: 0.9rem;
+    }
+    .student-chip:active { transform: scale(0.96); }
+    .student-chip.active { 
+        background: var(--accent-glow); 
+        border-color: var(--accent-color); 
+        color: white; 
+    }
+    .avatar-mini {
+        width: 22px; height: 22px; 
+        background: linear-gradient(135deg, var(--accent-brand), #d946ef);
+        border-radius: 50%; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        color: white; 
+        font-size: 0.7rem; 
+        font-weight: bold;
+    }
+
+    /* History & Grouping */
+    .month-header {
+        position: sticky;
+        top: 4.2rem; 
+        z-index: 90;
+        background: rgba(139, 92, 246, 0.15); /* Soft violet glass */
+        backdrop-filter: blur(12px);
+        padding: 0.75rem 1.25rem !important;
+        margin: 1rem 0 !important;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .history-row { 
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        padding: 1.15rem 1.25rem; 
+        margin-bottom: 1rem !important;
+        border-radius: 20px !important;
+        cursor: pointer; 
+        transition: background-color 0.2s, border-color 0.2s; 
+    }
+    .history-row:hover { transform: none !important; box-shadow: none !important; }
+    .history-row:last-child { margin-bottom: 0 !important; }
+
+    .history-row.expanded { 
+        border-color: var(--glass-border-bright); 
+        background: rgba(255,255,255,0.05);
+        transform: none !important;
+    }
+
+    /* Modal - Mobile Optimized */
+    .modal-backdrop {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(15px); z-index: 1000;
+        display: flex; align-items: center; justify-content: center;
+        padding: 1.5rem;
+    }
+    @@media (min-width: 768px) {
+        .modal-backdrop { align-items: center; }
+        .modal-glass { border-radius: 24px !important; margin-bottom: 0 !important; }
+    }
+    .modal-glass {
+        background: #0c0c0e; 
+        border: 1px solid rgba(255,255,255,0.1); 
+        border-radius: 32px;
+        width: 100%; 
+        max-width: 600px;
+        padding: 1.5rem; 
+        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* Standard Utilities */
+    .btn-stop {
+        background: rgba(239, 68, 68, 0.15); 
+        border: 1px solid rgba(239, 68, 68, 0.3); 
+        color: #fca5a5;
+        border-radius: 16px; 
+        font-weight: 700; 
+        cursor: pointer; 
+        transition: all 0.2s;
+    }
+    .btn-stop:active { transform: scale(0.98); background: rgba(239,68,68,0.25); }
+
+    .pulse { animation: pulse-animation 2s infinite; }
+    @@keyframes pulse-animation { 
+        0% { opacity: 1; transform: scale(1); } 
+        50% { opacity: 0.6; transform: scale(0.98); } 
+        100% { opacity: 1; transform: scale(1); } 
+    }
+    .scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    @@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    
+    .text-accent { color: #e9d5ff; } /* Light Violet for prices */
+    .clickable-icon { cursor: pointer; transition: all 0.2s; }
+    .clickable-icon:hover { transform: scale(1.1); }
+    .clickable-icon:active { transform: scale(0.9); }
+
+    .btn-glass-secondary {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        border-radius: 16px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .btn-glass-secondary:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
+
+    .text-gradient {
+        background: #ffffff;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: white;
+    }
+
+    /* Icon Circles */
+    .icon-circle {
+        width: 48px; height: 48px;
+        background: var(--glass-border-bright);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+    }
+    .icon-circle.mini { width: 32px; height: 32px; font-size: 0.9rem; border-radius: 8px; }
+    .icon-circle.active { background: var(--accent-brand); box-shadow: 0 0 15px var(--accent-glow); }
+
+    /* Inputs Premium */
+    /* Force solid background for inputs to prevent browser defaults bleeding */
+    .input-premium, .input-premium-simple {
+        background: #27272a !important; 
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 4px;
+        transition: all 0.2s;
+        color: white !important;
+    }
+    input { color: white !important; background: transparent !important; }
+    input[type="datetime-local"] { color-scheme: dark; } /* Ensures browser UI is dark too */
+
+    .input-premium:focus-within, .input-premium-simple:focus {
+        border-color: var(--accent-brand);
+        background: #323236 !important;
+        box-shadow: 0 0 10px var(--accent-glow);
+    }
+    .input-premium-simple { padding: 0.75rem 1rem; width: 100%; }
+
+    /* Modal Handle for Bottom Sheet */
+    .modal-handle {
+        width: 40px; height: 4px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 2px;
+        margin: 0 auto;
+    }
+
+    .fs-7 { font-size: 0.85rem; }
+    .letter-spacing-1 { letter-spacing: 0.05em; }
+    .border-dashed { border-style: dashed !important; }
+    .no-hover { cursor: default !important; }
+    .no-hover:active { transform: none !important; }
+</style>
+
+
+@code {
+    // State
+    private int activeTab = 0;
+    private List<Student>? availableStudents;
+    private List<Session>? allSessions;
+    private Session? activeSession;
+    private List<Session>? completedSessions;
+    private Guid? expandedSessionId;
+
+    // Form
+    private int hourlyRate = 25;
+    private List<Guid> selectedStudentIds = new();
+    private bool isStarting, isStopping;
+    private string errorMessage = "";
+
+    // Timer
+    private Timer? _timer;
+
+    // Edit modal
+    private bool isEditModalOpen;
+    private Session? editingSession;
+    private DateTime editStartAt;
+    private DateTime editEndAt;
+    private int editHourlyRate;
+    private List<Guid> editStudentIds = new();
+    private bool isSaving, isDeleting, isConfirmingDelete;
+    private string editErrorMessage = "";
+
+    private async Task DeleteSession()
+    {
+        if (editingSession is null || isDeleting) return;
+        
+        isDeleting = true;
+        var result = await SessionService.DeleteSessionAsync(editingSession.Id);
+        if (result.IsSuccess)
+        {
+            isConfirmingDelete = false;
+            CloseEditModal();
+            await LoadData();
+        }
+        else
+        {
+            editErrorMessage = result.Errors.FirstOrDefault()?.Message ?? "Fout.";
+            isDeleting = false;
+            isConfirmingDelete = false;
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        var studResult = await StudentService.GetAllAsync();
+        if (studResult.IsSuccess)
+            availableStudents = studResult.Value.ToList();
+
+        var sessResult = await SessionService.GetAllAsync();
+        if (sessResult.IsSuccess)
+        {
+            allSessions = sessResult.Value.ToList();
+            activeSession = allSessions.FirstOrDefault(s => s.EndAt is null);
+            completedSessions = allSessions.Where(s => s.EndAt is not null).ToList();
+
+            if (activeSession is not null)
+                StartTimer();
+        }
+    }
+
+    // ===== TIMER =====
+    private bool _disposed;
+
+    private void StartTimer()
+    {
+        _disposed = false;
+        _timer?.Dispose();
+        _timer = new Timer(async _ =>
+        {
+            if (_disposed) return;
+            try { await InvokeAsync(StateHasChanged); }
+            catch { /* component disposed, ignore */ }
+        }, null, 0, 1000);
+    }
+
+    private void StopTimer()
+    {
+        _disposed = true;
+        _timer?.Dispose();
+        _timer = null;
+    }
+
+    private string FormatElapsed()
+    {
+        if (activeSession is null) return "00:00:00";
+        var elapsed = DateTimeOffset.UtcNow - activeSession.StartAt;
+        return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+    }
+
+    // ===== ACTIONS =====
+    private void ToggleStudent(Guid id)
+    {
+        if (!selectedStudentIds.Remove(id))
+            selectedStudentIds.Add(id);
+    }
+
+    private async Task StartSession()
+    {
+        if (!selectedStudentIds.Any()) return;
+        isStarting = true; errorMessage = "";
+
+        var result = await SessionService.StartSessionAsync((decimal)hourlyRate, selectedStudentIds);
+        if (result.IsSuccess)
+        {
+            selectedStudentIds.Clear();
+            await LoadData();
+        }
+        else
+            errorMessage = result.Errors.FirstOrDefault()?.Message ?? "Fout.";
+
+        isStarting = false;
+    }
+
+    private async Task StopSession()
+    {
+        if (activeSession is null) return;
+        isStopping = true;
+        StopTimer();
+
+        var result = await SessionService.EndSessionAsync(activeSession.Id);
+        if (result.IsSuccess)
+        {
+            activeSession = null;
+            await LoadData();
+        }
+
+        isStopping = false;
+    }
+
+    // ===== HISTORY =====
+    private void ToggleExpand(Guid id) =>
+        expandedSessionId = expandedSessionId == id ? null : id;
+
+    // Tronque les secondes pour un calcul basé uniquement sur heures:minutes
+    private static TimeSpan GetSessionDuration(Session s)
+    {
+        if (s.EndAt is null) return TimeSpan.Zero;
+        var start = new DateTimeOffset(s.StartAt.Year, s.StartAt.Month, s.StartAt.Day, s.StartAt.Hour, s.StartAt.Minute, 0, s.StartAt.Offset);
+        var end = new DateTimeOffset(s.EndAt.Value.Year, s.EndAt.Value.Month, s.EndAt.Value.Day, s.EndAt.Value.Hour, s.EndAt.Value.Minute, 0, s.EndAt.Value.Offset);
+        return end - start;
+    }
+
+    private string GetDuration(Session s)
+    {
+        if (s.EndAt is null) return "—";
+        var d = GetSessionDuration(s);
+        return d.TotalMinutes < 60 ? $"{(int)d.TotalMinutes}mn" : $"{(int)d.TotalHours}u{d.Minutes:D2}mn";
+    }
+
+    private string GetTotal(Session s)
+    {
+        if (s.EndAt is null) return "—";
+        return (s.HourlyRate * (decimal)GetSessionDuration(s).TotalHours).ToString("F2");
+    }
+
+    private string GetPerStudentCost(Session s)
+    {
+        if (s.EndAt is null || !s.SessionStudents.Any()) return "—";
+        var total = s.HourlyRate * (decimal)GetSessionDuration(s).TotalHours;
+        return (total / s.SessionStudents.Count).ToString("F2");
+    }
+
+    // ===== EDIT MODAL =====
+    private void OpenEditModal(Session session)
+    {
+        editingSession = session;
+        editStartAt = session.StartAt.ToLocalTime().DateTime;
+        editEndAt = (session.EndAt ?? session.StartAt).ToLocalTime().DateTime;
+        editHourlyRate = (int)session.HourlyRate;
+        editStudentIds = session.SessionStudents.Select(ss => ss.StudentId).ToList();
+        editErrorMessage = "";
+        isConfirmingDelete = false;
+        isEditModalOpen = true;
+    }
+
+    private void CloseEditModal() 
+    {
+        isEditModalOpen = false;
+        isConfirmingDelete = false;
+    }
+
+    private void ToggleEditStudent(Guid id)
+    {
+        if (!editStudentIds.Remove(id))
+            editStudentIds.Add(id);
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingSession is null) return;
+        isSaving = true; editErrorMessage = "";
+
+        var startOffset = new DateTimeOffset(editStartAt, TimeZoneInfo.Local.GetUtcOffset(editStartAt));
+        var endOffset = new DateTimeOffset(editEndAt, TimeZoneInfo.Local.GetUtcOffset(editEndAt));
+
+        var result = await SessionService.UpdateSessionAsync(
+            editingSession.Id, startOffset, endOffset, (decimal)editHourlyRate, editStudentIds);
+
+        if (result.IsSuccess)
+        {
+            CloseEditModal();
+            await LoadData();
+        }
+        else
+            editErrorMessage = result.Errors.FirstOrDefault()?.Message ?? "Fout.";
+
+        isSaving = false;
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _timer?.Dispose();
+    }
+}
+
