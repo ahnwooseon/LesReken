@@ -1,0 +1,16 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/out
+**/publish
+.dockerignore
+Dockerfile
+.github
+fly.toml
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+node_modules

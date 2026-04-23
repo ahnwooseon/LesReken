@@ -1,0 +1,26 @@
+app = 'lesreken'
+primary_region = 'cdg'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  ASPNETCORE_URLS = 'http://+:8080'
+  ConnectionStrings__DefaultConnection = 'Data Source=/app/data/lesreken.db'
+
+[[mounts]]
+  source = 'lesreken_data'
+  destination = '/app/data'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
