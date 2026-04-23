@@ -1,0 +1,49 @@
+@page "/counter"
+@rendermode InteractiveAuto
+
+<PageTitle>LesReken | Compteur</PageTitle>
+
+<div class="container py-5 mt-5">
+    <div class="row align-items-center justify-content-center">
+        <div class="col-md-6">
+            <div class="glass-card text-center p-5">
+                <h1 class="text-gradient mb-4">Compteur Interactif</h1>
+                
+                <div class="count-display my-5">
+                    <span class="display-1 fw-bold text-white">@currentCount</span>
+                </div>
+
+                <p class="mb-5 fs-5">Cliquez sur le bouton ci-dessous pour voir la magie du rendu Interactif Auto en action.</p>
+
+                <button class="btn-premium w-100 py-3 fs-5 shadow-lg" @onclick="IncrementCount">
+                    <i class="bi bi-plus-circle-fill me-2"></i>Incrémenter le compteur
+                </button>
+            </div>
+            
+            <div class="mt-4 text-center">
+                <a href="/" class="btn btn-link text-white text-decoration-none border-bottom border-white border-opacity-25 opacity-75 hover-opacity-100">
+                    <i class="bi bi-arrow-left me-2"></i>Retour à l'accueil
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .count-display {
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+        padding: 2rem;
+        border-radius: 50%;
+        display: inline-block;
+        min-width: 200px;
+    }
+</style>
+
+@code {
+    private int currentCount = 0;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+}

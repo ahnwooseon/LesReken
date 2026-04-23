@@ -6,5 +6,6 @@
     <Project Path="src/LesReken.Infrastructure/LesReken.Infrastructure.csproj" />
     <Project Path="src/LesReken.ServiceDefaults/LesReken.ServiceDefaults.csproj" />
     <Project Path="src/LesReken.Web/LesReken.Web.csproj" />
+    <Project Path="src/LesReken.Web.Client/LesReken.Web.Client.csproj" />
   </Folder>
 </Solution>

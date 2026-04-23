@@ -2,4 +2,9 @@
   <ItemGroup>
     <ProjectReference Include="..\LesReken.Application\LesReken.Application.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+  </ItemGroup>
 </Project>
